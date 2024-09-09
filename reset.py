@@ -15,6 +15,7 @@ os.makedirs('./image/hi_res', exist_ok=True)
 url = "https://raw.githubusercontent.com/Purukitto/pokemon-data.json/master/pokedex.json"
 
 async def fetch_and_save_pokemon_data():
+    pokemon_table.truncate();
     async with httpx.AsyncClient() as client:
         response = await client.get(url)
         pokemon_data = response.json()
@@ -65,7 +66,7 @@ async def fetch_and_save_pokemon_data():
 
         # Update key from 'hires' to 'hi_res'
         if 'hires' in pokemon['image']:
-            pokemon['image']['hi_res'] = pokemon['image'].pop('hires')
+            pokemon['image'].pop('hires')
 
     pokemon_table.insert_multiple(pokemon_data)
 
