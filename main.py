@@ -1,7 +1,7 @@
 import os
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
@@ -37,4 +37,8 @@ async def get_pokemon():
 async def get_pokemon_by_id(pokemon_id: int):
     pokemon_table = db.table('pokemon')
     pokemon = Query()
-    return pokemon_table.search(pokemon.id == pokemon_id)
+    result = pokemon_table.search(pokemon.id == pokemon_id)
+    if result:
+        return result[0]
+    else:
+        raise HTTPException(status_code=404, detail="Pokemon not found")
