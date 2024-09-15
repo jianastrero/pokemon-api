@@ -47,6 +47,11 @@ class User(BaseModel):
     auth_token: Optional[str] = None
 
 
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
@@ -109,7 +114,7 @@ async def root():
 
 
 @app.post("/login")
-async def login(user: User):
+async def login(user: UserLogin):
     user = jsonable_encoder(user)
     user = authenticate_user(user['username'], user['password'])
 
@@ -207,5 +212,20 @@ async def get_pokemon_by_id(token: Annotated[str, Depends(oauth2_scheme)], pokem
     result = pokemon_table.search(pokemon.id == pokemon_id)
     if result:
         return result[0]
+    else:
+        raise HTTPException(status_code=404, detail="Pokemon not found")
+
+
+@app.post("/pokemon/{pokemon_id}/update")
+async def update_pokemon(token: Annotated[str, Depends(oauth2_scheme)], pokemon_id: int, new_pokemon: dict):
+    check_token(token)
+
+    pokemon_table = db.table('pokemon')
+    pokemon = Query()
+    result = pokemon_table.search(pokemon.id == pokemon_id)
+    if result:
+        new_pokemon.pop('id', None)
+        pokemon_table.update(new_pokemon, pokemon.id == pokemon_id)
+        return {"message": "Pokemon updated successfully"}
     else:
         raise HTTPException(status_code=404, detail="Pokemon not found")
