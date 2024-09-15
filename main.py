@@ -216,7 +216,16 @@ async def get_pokemon_by_id(token: Annotated[str, Depends(oauth2_scheme)], pokem
         raise HTTPException(status_code=404, detail="Pokemon not found")
 
 
-@app.post("/pokemon/{pokemon_id}/update")
+@app.put("/pokemon/add")
+async def add_pokemon(token: Annotated[str, Depends(oauth2_scheme)], pokemon: dict):
+    check_token(token)
+
+    pokemon_table = db.table('pokemon')
+    pokemon_table.insert(pokemon)
+    return {"message": "Pokemon added successfully"}
+
+
+@app.patch("/pokemon/{pokemon_id}")
 async def update_pokemon(token: Annotated[str, Depends(oauth2_scheme)], pokemon_id: int, new_pokemon: dict):
     check_token(token)
 
@@ -227,5 +236,19 @@ async def update_pokemon(token: Annotated[str, Depends(oauth2_scheme)], pokemon_
         new_pokemon.pop('id', None)
         pokemon_table.update(new_pokemon, pokemon.id == pokemon_id)
         return {"message": "Pokemon updated successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Pokemon not found")
+
+
+@app.delete("/pokemon/{pokemon_id}")
+async def delete_pokemon(token: Annotated[str, Depends(oauth2_scheme)], pokemon_id: int):
+    check_token(token)
+
+    pokemon_table = db.table('pokemon')
+    pokemon = Query()
+    result = pokemon_table.search(pokemon.id == pokemon_id)
+    if result:
+        pokemon_table.remove(pokemon.id == pokemon_id)
+        return {"message": "Pokemon deleted successfully"}
     else:
         raise HTTPException(status_code=404, detail="Pokemon not found")
