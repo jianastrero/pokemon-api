@@ -52,6 +52,13 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserUpdate(BaseModel):
+    name: str
+    address: str
+    age: int
+    password: Optional[str] = None
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
@@ -63,11 +70,13 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
-def get_user(username: str):
+def get_user(username: str) -> dict | None:
     user_table = db.table('users')
     user = Query()
     result = user_table.search(user.username == username)
     if result:
+        print("User found:", result[0])
+        print("User found:", result[0]['password'])
         return result[0]
     else:
         return None
@@ -175,20 +184,25 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     username = check_token(token, credentials_exception)
 
     user = get_user(username)
+    user = user.copy()
     if user is None:
         raise credentials_exception
     user.pop('password', None)
     return user
 
 
-@app.put("/user/update")
-async def update_user(user: User, token: Annotated[str, Depends(oauth2_scheme)]):
+@app.patch("/user/me")
+async def update_user(user_update: UserUpdate, token: Annotated[str, Depends(oauth2_scheme)]):
     username = check_token(token)
-    user_table = db.table('users')
+    user = get_user(username)
 
-    update_data = jsonable_encoder(user)
+    user_table = db.table('users')
+    update_data = jsonable_encoder(user_update)
     update_data.pop('username', None)  # Ensure username is not updated
-    update_data['password'] = pwd_context.hash(update_data['password'])
+    if ('password' in update_data) and update_data['password']:
+        update_data['password'] = pwd_context.hash(update_data['password'])
+    else:
+        update_data.pop('password', None)
 
     user_table.update(update_data, Query().username == username)
 
