@@ -167,6 +167,20 @@ async def signup(user: User):
     }
 
 
+@app.post("/refresh-token")
+async def refresh_token(token: Annotated[str, Depends(oauth2_scheme)]):
+    username = check_token(token)
+    new_access_token = create_access_token({"sub": username})
+
+    user_table = db.table('users')
+    user_table.update({'auth_token': new_access_token}, Query().username == username)
+
+    return {
+        "access_token": new_access_token,
+        "token_type": "bearer"
+    }
+
+
 @app.post("/logout")
 async def logout(token: Annotated[str, Depends(oauth2_scheme)]):
     token_blacklist_table = db.table('token_blacklist')
