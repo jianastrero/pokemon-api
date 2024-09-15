@@ -1,8 +1,6 @@
-import os
 from datetime import timedelta, datetime, timezone
 from typing import Optional, Annotated
 
-import httpx
 import jwt
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.encoders import jsonable_encoder
@@ -43,6 +41,9 @@ db = TinyDB('./pokemon.json')
 class User(BaseModel):
     username: str
     password: str
+    name: str
+    address: str
+    age: int
     auth_token: Optional[str] = None
 
 
@@ -71,7 +72,7 @@ def authenticate_user(username: str, password: str):
     user = get_user(username)
     if not user:
         return False
-    if not password == user['password']: # TODO: Should we use verify instead?
+    if not pwd_context.verify(password, user['password']):
         return False
     return user
 
@@ -131,7 +132,7 @@ async def signup(user: User):
     user_table = db.table('users')
     user = jsonable_encoder(user)
 
-    hashed_password = user['password']
+    hashed_password = pwd_context.hash(user['password'])
 
     if get_user(user['username']):
         raise HTTPException(status_code=400, detail="User already exists")
@@ -139,6 +140,9 @@ async def signup(user: User):
     user_data = {
         "username": user['username'],
         "password": hashed_password,
+        "name": user.get('name'),
+        "address": user.get('address'),
+        "age": user.get('age'),
         "auth_token": create_access_token({"sub": user['username']}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     }
     user_table.insert(user_data)
@@ -168,7 +172,22 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     user = get_user(username)
     if user is None:
         raise credentials_exception
+    user.pop('password', None)
     return user
+
+
+@app.put("/user/update")
+async def update_user(user: User, token: Annotated[str, Depends(oauth2_scheme)]):
+    username = check_token(token)
+    user_table = db.table('users')
+
+    update_data = jsonable_encoder(user)
+    update_data.pop('username', None)  # Ensure username is not updated
+    update_data['password'] = pwd_context.hash(update_data['password'])
+
+    user_table.update(update_data, Query().username == username)
+
+    return {"message": "User updated successfully"}
 
 
 @app.get("/pokemon")
